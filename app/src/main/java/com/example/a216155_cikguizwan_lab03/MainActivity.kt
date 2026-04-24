@@ -3,7 +3,6 @@ package com.example.a216155_cikguizwan_lab03
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.*
@@ -40,22 +39,18 @@ import java.util.Locale
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.layout.*
-import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.a216155_cikguizwan_lab03.ui.them.SurfaceWhite
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.compose.animation.core.*
 
 // --- THEME COLORS ---
 // --- NEW DEEP MIDNIGHT THEME COLORS ---
 val MidnightBlue = Color(0xFF1A237E)      // Primary (Replacing PrimaryPurple)
 val AcademicGold = Color(0xFFC5A000)      // Secondary (Replacing SoftPink)
-val CleanGrayBg = Color(0xFFF5F5F5)       // Background (Replacing BodyPinkBg)
+val CleanGrayBg = Color(0xFFFFF0F5)       // Background (Replacing BodyPinkBg)
 val BoxBorderBlue = Color(0xFFADCFFF)     // Border (You can keep this or use MidnightBlue)
 val TitleDark = Color(0xFF212121)    // Pure White for Cards
 val SubtextGray = Color(0xFF616161)       // For small text
@@ -979,7 +974,7 @@ fun TasksListScreen(onTaskClick: () -> Unit, onBack: () -> Unit) {
                     Icon(Icons.Default.CheckBoxOutlineBlank, null, tint = Color.Gray, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Assignment 1", fontWeight = FontWeight.ExtraBold, color = MidnightBlue, fontSize = 18.sp)
+                        Text("Assingment 1", fontWeight = FontWeight.ExtraBold, color = MidnightBlue, fontSize = 18.sp)
                         Text("Due Tue, 05 May  0%", color = Color.Gray, fontSize = 13.sp)
                     }
                 }

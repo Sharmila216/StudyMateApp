@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-android {
+android {4
     namespace = "com.example.a216155_cikguizwan_lab03"
     compileSdk {
         version = release(36) {
