@@ -1,5 +1,4 @@
-package com.example.a216155_cikguizwan_project1
-
+package com.example.a216155_cikguizwan_lab5
 import org.junit.Test
 
 import org.junit.Assert.*

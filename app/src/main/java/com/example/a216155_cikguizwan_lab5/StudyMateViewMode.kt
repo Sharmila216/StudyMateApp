@@ -1,16 +1,42 @@
-package com.example.a216155_cikguizwan_project1
+package com.example.a216155_cikguizwan_lab5
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.example.a216155_cikguizwan_lab5.data.StudyMateRepository
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-class StudyMateApp : ViewModel() {
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+
+class StudyMateApp(
+    application: Application,
+    private val repository: StudyMateRepository
+) : AndroidViewModel(application) {
 
     private val _uiState = mutableStateOf(UiState(firstName = "", lastName = ""))
     val uiState: State<UiState> = _uiState
+
+    init {
+        repository.allTasks
+            .onEach { tasks ->
+                _uiState.value = _uiState.value.copy(tasks = tasks)
+            }
+            .launchIn(viewModelScope)
+
+        repository.allExams
+            .onEach { exams ->
+                _uiState.value = _uiState.value.copy(exams = exams)
+            }
+            .launchIn(viewModelScope)
+    }
 
     fun updateUserProfile(newFirst: String, newLast: String) {
         _uiState.value = _uiState.value.copy(
@@ -28,7 +54,6 @@ class StudyMateApp : ViewModel() {
         updateAddNewForm { it.copy(selectedCategory = category) }
     }
 
-    /** Returns false if title is blank. */
     fun saveNewTaskFromForm(): Boolean {
         val f = _uiState.value.addNewForm
         if (f.taskTitle.isBlank()) return false
@@ -43,9 +68,19 @@ class StudyMateApp : ViewModel() {
             dueTimeDisplay = f.taskDueTime.trim().ifBlank { formatDisplayTime(ts) },
             dueTimestamp = ts,
         )
-        _uiState.value = _uiState.value.copy(
-            tasks = _uiState.value.tasks + task,
-            addNewForm = f.copy(
+        viewModelScope.launch {
+            repository.insertTask(task)
+
+            NotificationScheduler.scheduleTaskNotifications(
+                context = getApplication(),
+                taskId = task.id,
+                taskTitle = task.title,
+                taskType = task.typeOptional,
+                dueTimestamp = task.dueTimestamp,
+            )
+        }
+        updateAddNewForm {
+            it.copy(
                 taskTitle = "",
                 taskDescription = "",
                 taskSubject = "",
@@ -53,13 +88,58 @@ class StudyMateApp : ViewModel() {
                 taskOccursOnce = true,
                 taskDueDate = "",
                 taskDueTime = "",
-                freeTasksRemaining = (f.freeTasksRemaining - 1).coerceAtLeast(0),
-            ),
-        )
+                freeTasksRemaining = (it.freeTasksRemaining - 1).coerceAtLeast(0),
+            )
+        }
         return true
     }
 
-    /** Returns false if exam name or subject is blank. */
+    fun updateTask(
+        id: String,
+        title: String,
+        details: String,
+        typeOptional: String,
+        occursOnce: Boolean,
+        dueDateDisplay: String,
+        dueTimeDisplay: String,
+    ) {
+        val ts = parseCombinedDateTime(dueDateDisplay, dueTimeDisplay)
+        val existing = _uiState.value.tasks.find { it.id == id } ?: return
+        val updated = existing.copy(
+            title = title.trim(),
+            details = details.trim(),
+            typeOptional = typeOptional.trim(),
+            occursOnce = occursOnce,
+            dueDateDisplay = dueDateDisplay.trim().ifBlank { formatDisplayDate(ts) },
+            dueTimeDisplay = dueTimeDisplay.trim().ifBlank { formatDisplayTime(ts) },
+            dueTimestamp = ts,
+        )
+        viewModelScope.launch {
+            repository.insertTask(updated)
+        }
+    }
+
+    fun deleteTask(id: String) {
+        viewModelScope.launch {
+            repository.deleteTask(id)
+        }
+    }
+
+    fun completeTask(id: String) {
+        viewModelScope.launch {
+            repository.completeTask(id)
+        }
+    }
+
+    fun completeAllOverdueTasks() {
+        val today = startOfDayMillis(System.currentTimeMillis())
+        viewModelScope.launch {
+            repository.completeAllOverdueTasks(today)
+        }
+    }
+
+    fun getTask(id: String): TaskItem? = _uiState.value.tasks.find { it.id == id }
+
     fun saveNewExamFromForm(): Boolean {
         val f = _uiState.value.addNewForm
         if (f.examName.isBlank() || f.examSubject.isBlank()) return false
@@ -78,9 +158,11 @@ class StudyMateApp : ViewModel() {
             examTimestamp = ts,
             module = f.examSubject.trim(),
         )
-        _uiState.value = _uiState.value.copy(
-            exams = _uiState.value.exams + exam,
-            addNewForm = f.copy(
+        viewModelScope.launch {
+            repository.insertExam(exam)
+        }
+        updateAddNewForm {
+            it.copy(
                 examName = "",
                 examSubject = "",
                 examType = "Exam",
@@ -91,58 +173,9 @@ class StudyMateApp : ViewModel() {
                 examDate = "",
                 examTime = "",
                 examDurationMinutes = "",
-            ),
-        )
+            )
+        }
         return true
-    }
-
-    fun updateTask(
-        id: String,
-        title: String,
-        details: String,
-        typeOptional: String,
-        occursOnce: Boolean,
-        dueDateDisplay: String,
-        dueTimeDisplay: String,
-    ) {
-        val ts = parseCombinedDateTime(dueDateDisplay, dueTimeDisplay)
-        _uiState.value = _uiState.value.copy(
-            tasks = _uiState.value.tasks.map { t ->
-                if (t.id != id) t
-                else t.copy(
-                    title = title.trim(),
-                    details = details.trim(),
-                    typeOptional = typeOptional.trim(),
-                    occursOnce = occursOnce,
-                    dueDateDisplay = dueDateDisplay.trim().ifBlank { formatDisplayDate(ts) },
-                    dueTimeDisplay = dueTimeDisplay.trim().ifBlank { formatDisplayTime(ts) },
-                    dueTimestamp = ts,
-                )
-            },
-        )
-    }
-
-    fun deleteTask(id: String) {
-        _uiState.value = _uiState.value.copy(tasks = _uiState.value.tasks.filter { it.id != id })
-    }
-
-    fun completeTask(id: String) {
-        _uiState.value = _uiState.value.copy(
-            tasks = _uiState.value.tasks.map { t ->
-                if (t.id != id) t else t.copy(isCompleted = true, progressPercent = 100)
-            },
-        )
-    }
-
-    fun completeAllOverdueTasks() {
-        val today = startOfDayMillis(System.currentTimeMillis())
-        _uiState.value = _uiState.value.copy(
-            tasks = _uiState.value.tasks.map { t ->
-                if (!t.isCompleted && t.dueTimestamp < today) {
-                    t.copy(isCompleted = true, progressPercent = 100)
-                } else t
-            },
-        )
     }
 
     fun updateExam(
@@ -159,32 +192,31 @@ class StudyMateApp : ViewModel() {
         durationMinutes: String,
     ) {
         val ts = parseCombinedDateTime(dateDisplay, timeDisplay)
-        _uiState.value = _uiState.value.copy(
-            exams = _uiState.value.exams.map { e ->
-                if (e.id != id) e
-                else e.copy(
-                    isResit = isResit,
-                    examType = examType,
-                    inPerson = inPerson,
-                    module = module.trim(),
-                    subject = module.trim().ifBlank { e.subject },
-                    seat = if (inPerson) seat.trim() else "",
-                    room = if (inPerson) room.trim() else "",
-                    onlineUrl = if (inPerson) "" else onlineUrl.trim(),
-                    dateDisplay = dateDisplay.trim().ifBlank { formatDisplayDate(ts) },
-                    timeDisplay = timeDisplay.trim().ifBlank { formatDisplayTime(ts) },
-                    durationMinutes = durationMinutes.trim(),
-                    examTimestamp = ts,
-                )
-            },
+        val existing = _uiState.value.exams.find { it.id == id } ?: return
+        val updated = existing.copy(
+            isResit = isResit,
+            examType = examType,
+            inPerson = inPerson,
+            module = module.trim(),
+            subject = module.trim().ifBlank { existing.subject },
+            seat = if (inPerson) seat.trim() else "",
+            room = if (inPerson) room.trim() else "",
+            onlineUrl = if (inPerson) "" else onlineUrl.trim(),
+            dateDisplay = dateDisplay.trim().ifBlank { formatDisplayDate(ts) },
+            timeDisplay = timeDisplay.trim().ifBlank { formatDisplayTime(ts) },
+            durationMinutes = durationMinutes.trim(),
+            examTimestamp = ts,
         )
+        viewModelScope.launch {
+            repository.insertExam(updated)
+        }
     }
 
     fun deleteExam(id: String) {
-        _uiState.value = _uiState.value.copy(exams = _uiState.value.exams.filter { it.id != id })
+        viewModelScope.launch {
+            repository.deleteExam(id)
+        }
     }
-
-    fun getTask(id: String): TaskItem? = _uiState.value.tasks.find { it.id == id }
 
     fun getExam(id: String): ExamItem? = _uiState.value.exams.find { it.id == id }
 
@@ -211,7 +243,6 @@ class StudyMateApp : ViewModel() {
         fun formatCardDayMonth(millis: Long): String =
             SimpleDateFormat("dd MMM", Locale.ENGLISH).format(Date(millis))
 
-        /** Date at local midnight from stored display string (for date-only pickers). */
         fun parseCalendarDateOnly(dateStr: String): Calendar {
             val c = Calendar.getInstance()
             val millis = if (dateStr.isBlank()) {
@@ -225,7 +256,6 @@ class StudyMateApp : ViewModel() {
 
         fun calendarToStandardDate(cal: Calendar): String = formatDisplayDate(cal.timeInMillis)
 
-        /** Hour 1-12, minute 0-59, isPm */
         fun parseTimePartsFromString(timeStr: String): Triple<Int, Int, Boolean> {
             val refDate = formatDisplayDate(System.currentTimeMillis())
             val millis = parseCombinedDateTime(refDate, timeStr.ifBlank { "12:00 PM" })
@@ -261,7 +291,6 @@ class StudyMateApp : ViewModel() {
         fun parseCombinedDateTime(dateStr: String, timeStr: String): Long {
             val datePart = dateStr.trim()
             val timePart = timeStr.trim().ifBlank { "12:00 AM" }
-
             val dateFormats = listOf(
                 SimpleDateFormat("EEE, d MMM yyyy", Locale.ENGLISH),
                 SimpleDateFormat("EEE, d MMMM yyyy", Locale.ENGLISH),
@@ -275,12 +304,9 @@ class StudyMateApp : ViewModel() {
                     dayCal.time = d
                     parsed = true
                     break
-                } catch (_: Exception) {
-                }
+                } catch (_: Exception) {}
             }
-            if (!parsed) {
-                return System.currentTimeMillis()
-            }
+            if (!parsed) return System.currentTimeMillis()
             val timeFormats = listOf(
                 SimpleDateFormat("h:mm a", Locale.ENGLISH),
                 SimpleDateFormat("h.mm a", Locale.ENGLISH),
@@ -294,8 +320,7 @@ class StudyMateApp : ViewModel() {
                     tc.time = t
                     timeCal = tc
                     break
-                } catch (_: Exception) {
-                }
+                } catch (_: Exception) {}
             }
             if (timeCal != null) {
                 dayCal.set(Calendar.HOUR_OF_DAY, timeCal.get(Calendar.HOUR_OF_DAY))
@@ -305,5 +330,18 @@ class StudyMateApp : ViewModel() {
             }
             return dayCal.timeInMillis
         }
+    }
+}
+
+class StudyMateViewModelFactory(
+    private val application: Application,
+    private val repository: StudyMateRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(StudyMateApp::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return StudyMateApp(application, repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

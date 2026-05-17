@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_project1
+package com.example.a216155_cikguizwan_lab5
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,10 +32,10 @@ import java.util.*
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.a216155_cikguizwan_project1.ui.them.MidnightBlue
+import com.example.a216155_cikguizwan_lab5.ui.them.MidnightBlue
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.MenuBook
-import com.example.a216155_cikguizwan_project1.ui.them.CleanGrayBg
+import com.example.a216155_cikguizwan_lab5.ui.them.CleanGrayBg
 import java.util.Calendar
 import java.util.Locale
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,7 +45,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.a216155_cikguizwan_project1.ui.them.SurfaceWhite
+import com.example.a216155_cikguizwan_lab5.ui.them.SurfaceWhite
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.runtime.getValue
@@ -85,6 +85,8 @@ import kotlinx.coroutines.flow.filter
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import androidx.compose.ui.platform.LocalContext
+import android.os.Build
 // --- THEME COLORS ---
 // --- NEW DEEP MIDNIGHT THEME COLORS ---
 val MidnightBlue = Color(0xFF1A237E)      // Primary (Replacing PrimaryPurple)
@@ -116,11 +118,20 @@ private val pomodoroIntervalOptions: List<Int> = (1..10).toList()
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(
+                arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
+                1001
+            )
+        }
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     val navController = rememberNavController()
-                    val viewModel: StudyMateApp= viewModel()
+                    val app = application as StudyMateApplication
+                    val viewModel: StudyMateApp = viewModel(
+                        factory = StudyMateViewModelFactory(application, app.repository)
+                    )
 
                     // THE NAVHOST: Handle high-level screen navigation
                     NavHost(navController = navController, startDestination = "main_app") {
@@ -152,10 +163,13 @@ class MainActivity : ComponentActivity() {
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun StudyMatePreview() {
-
     val navController = rememberNavController()
-    val viewModel: StudyMateApp = viewModel()
-
+    val viewModel: StudyMateApp = viewModel(
+        factory = StudyMateViewModelFactory(
+            LocalContext.current.applicationContext as android.app.Application,
+            (LocalContext.current.applicationContext as StudyMateApplication).repository
+        )
+    )
     StudyMateApp(navController = navController, viewModel = viewModel)
 }
 
@@ -1766,7 +1780,7 @@ fun EditField(label: String, value: String, onValueChange: (String) -> Unit) {
 fun DashboardScreen(paddingValues: PaddingValues, onSearchClick: () -> Unit) {
     Column(modifier = Modifier
         .fillMaxSize()
-        .background(com.example.a216155_cikguizwan_project1.CleanGrayBg)
+        .background(com.example.a216155_cikguizwan_lab5.CleanGrayBg)
         .padding(paddingValues)
         .verticalScroll(rememberScrollState())) {
         HeaderSection(onSearchClick)
@@ -1955,7 +1969,7 @@ fun CalendarHeader(
         OutlinedButton(
             onClick = onToday,
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(2.dp, com.example.a216155_cikguizwan_project1.CleanGrayBg)
+            border = BorderStroke(2.dp, com.example.a216155_cikguizwan_lab5.CleanGrayBg)
         ) {
             Text("Today", color = MidnightBlue, fontWeight = FontWeight.Bold)
         }
@@ -2093,7 +2107,7 @@ fun HeaderSection(onSearchClick: () -> Unit) {
     val sdfDate = SimpleDateFormat("MMMM d, yyyy", Locale.ENGLISH).format(Date())
     val waveShape = GenericShape { size, _ ->
         lineTo(0f, size.height * 0.82f)
-        quadraticTo(size.width * 0.5f, size.height, size.width, size.height * 0.82f)
+        quadraticBezierTo(size.width * 0.5f, size.height, size.width, size.height * 0.82f)
         lineTo(size.width, 0f)
         close()
     }
@@ -3000,7 +3014,7 @@ fun ExamDetailScreen(
                     Column(Modifier.weight(1f)) {
                         Text(
                             exam.subject.uppercase(Locale.ENGLISH),
-                            color = AccentBlueBright,
+                            color = MidnightBlue,
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
                         )
@@ -3009,7 +3023,7 @@ fun ExamDetailScreen(
                     Surface(color = Color(0xFFE3F2FD), shape = RoundedCornerShape(20.dp)) {
                         Text(
                             exam.examType.uppercase(Locale.ENGLISH),
-                            color = AccentBlueBright,
+                            color = MidnightBlue,
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -3048,7 +3062,7 @@ fun ExamDetailScreen(
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp)
                 .height(52.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AccentBlueBright),
+            colors = ButtonDefaults.buttonColors(containerColor = MidnightBlue),
             shape = RoundedCornerShape(14.dp),
         ) {
             Icon(Icons.Default.Add, null, tint = Color.White)
@@ -3570,14 +3584,14 @@ private fun PomodoroTimerScreen(
             CircularProgressIndicator(
                 progress = { 1f },
                 modifier = Modifier.fillMaxSize(),
-                color = AccentBlueBright.copy(alpha = 0.28f),
+                color = MidnightBlue.copy(alpha = 0.28f),
                 strokeWidth = 14.dp,
                 trackColor = Color.Transparent,
             )
             CircularProgressIndicator(
                 progress = { clockwiseProgress },
                 modifier = Modifier.fillMaxSize(),
-                color = AccentBlueBright,
+                color = MidnightBlue,
                 strokeWidth = 14.dp,
                 trackColor = Color.Transparent,
                 strokeCap = StrokeCap.Round,
@@ -3587,7 +3601,7 @@ private fun PomodoroTimerScreen(
                     .size(20.dp)
                     .offset { IntOffset(knobX, knobY) }
                     .background(Color.White, CircleShape)
-                    .border(1.dp, AccentBlueBright.copy(alpha = 0.45f), CircleShape),
+                    .border(1.dp, MidnightBlue.copy(alpha = 0.45f), CircleShape),
             )
             Surface(
                 modifier = Modifier.size(222.dp),
@@ -3610,7 +3624,7 @@ private fun PomodoroTimerScreen(
                         formatPomodoroTime(remainingSeconds),
                         fontSize = 58.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = AccentBlueBright,
+                        color = MidnightBlue,
                     )
                 }
             }
@@ -3625,18 +3639,18 @@ private fun PomodoroTimerScreen(
             FilledIconButton(
                 onClick = { resetCurrentMode() },
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFDCEBFA)),
-            ) { Icon(Icons.Default.RestartAlt, null, tint = AccentBlueBright) }
+            ) { Icon(Icons.Default.RestartAlt, null, tint = MidnightBlue) }
             Spacer(Modifier.width(18.dp))
             FilledIconButton(
                 onClick = { isRunning = !isRunning },
                 modifier = Modifier.size(72.dp),
-                colors = IconButtonDefaults.filledIconButtonColors(containerColor = AccentBlueBright),
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = MidnightBlue),
             ) { Icon(if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White) }
             Spacer(Modifier.width(18.dp))
             FilledIconButton(
                 onClick = onOpenSettings,
                 colors = IconButtonDefaults.filledIconButtonColors(containerColor = Color(0xFFDCEBFA)),
-            ) { Icon(Icons.Default.Settings, null, tint = AccentBlueBright) }
+            ) { Icon(Icons.Default.Settings, null, tint = MidnightBlue) }
         }
 
         Spacer(Modifier.height(24.dp))
@@ -3646,10 +3660,10 @@ private fun PomodoroTimerScreen(
             readOnly = true,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
-            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, tint = AccentBlueBright) },
+            trailingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, tint = MidnightBlue) },
             colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = AccentBlueBright.copy(alpha = 0.7f),
-                focusedBorderColor = AccentBlueBright,
+                unfocusedBorderColor = MidnightBlue.copy(alpha = 0.7f),
+                focusedBorderColor = MidnightBlue,
                 unfocusedContainerColor = Color.Transparent,
                 focusedContainerColor = Color.Transparent,
             ),
