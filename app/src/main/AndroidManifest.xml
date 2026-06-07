@@ -5,10 +5,19 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="29"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
         android:name=".StudyMateApplication"
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
@@ -17,7 +26,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.A216155_CIKGUIZWAN_LAB01">
         <activity
-            android:name="com.example.a216155_cikguizwan_lab5.MainActivity"
+            android:name="com.example.a216155_cikguizwan_project2.MainActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.A216155_CIKGUIZWAN_LAB01">
@@ -30,7 +39,7 @@
             android:name=".DismissNotificationReceiver"
             android:exported="false">
             <intent-filter>
-                <action android:name="com.example.a216155_cikguizwan_lab5.DISMISS"/>
+                <action android:name="com.example.a216155_cikguizwan_project2.DISMISS"/>
             </intent-filter>
         </receiver>
     </application>

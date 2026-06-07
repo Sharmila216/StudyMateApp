@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5
+package com.example.a216155_cikguizwan_project2
 
 import java.util.UUID
 
@@ -86,6 +86,7 @@ data class AddNewFormState(
 data class UiState(
     val firstName: String = "",
     val lastName: String = "",
+    val profilePicturePath: String = "",
     val addNewForm: AddNewFormState = AddNewFormState(),
     val tasks: List<TaskItem> = emptyList(),
     val exams: List<ExamItem> = emptyList(),

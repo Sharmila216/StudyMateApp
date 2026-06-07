@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5.ui.theme
+package com.example.a216155_cikguizwan_project2.ui.theme
 
 import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -9,9 +9,9 @@ import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import com.example.a216155_cikguizwan_lab5.ui.them.AcademicGold
-import com.example.a216155_cikguizwan_lab5.ui.them.MidnightBlue
-import com.example.a216155_cikguizwan_lab5.ui.them.MidnightBlueDark
+import com.example.a216155_cikguizwan_project2.ui.them.AcademicGold
+import com.example.a216155_cikguizwan_project2.ui.them.MidnightBlue
+import com.example.a216155_cikguizwan_project2.ui.them.MidnightBlueDark
 
 private val DarkColorScheme = darkColorScheme(
     primary = MidnightBlue,

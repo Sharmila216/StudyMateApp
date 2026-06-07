@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5.ui.theme
+package com.example.a216155_cikguizwan_project2.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

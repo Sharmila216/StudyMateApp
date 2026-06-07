@@ -1,8 +1,8 @@
-package com.example.a216155_cikguizwan_lab5
+package com.example.a216155_cikguizwan_project2
 
 import android.app.Application
-import com.example.a216155_cikguizwan_lab5.data.StudyMateDatabase
-import com.example.a216155_cikguizwan_lab5.data.StudyMateRepository
+import com.example.a216155_cikguizwan_project2.data.StudyMateDatabase
+import com.example.a216155_cikguizwan_project2.data.StudyMateRepository
 
 class StudyMateApplication : Application() {
 
@@ -12,6 +12,7 @@ class StudyMateApplication : Application() {
         StudyMateRepository(
             taskDao = database.taskDao(),
             examDao = database.examDao(),
+            userProfileDao = database.userProfileDao()
         )
     }
 

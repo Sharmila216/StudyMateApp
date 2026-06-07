@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5
+package com.example.a216155_cikguizwan_project2
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -14,7 +14,7 @@ object NotificationHelper {
 
     const val CHANNEL_ID = "studymate_task_channel"
     const val CHANNEL_NAME = "StudyMate Task Notifications"
-    const val ACTION_DISMISS = "com.example.a216155_cikguizwan_lab5.DISMISS"
+    const val ACTION_DISMISS = "com.example.a216155_cikguizwan_project2.DISMISS"
 
     fun createNotificationChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

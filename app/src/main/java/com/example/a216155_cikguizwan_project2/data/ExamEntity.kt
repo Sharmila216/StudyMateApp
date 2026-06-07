@@ -1,8 +1,8 @@
-package com.example.a216155_cikguizwan_lab5.data
+package com.example.a216155_cikguizwan_project2.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import com.example.a216155_cikguizwan_lab5.ExamItem
+import com.example.a216155_cikguizwan_project2.ExamItem
 
 @Entity(tableName = "exams")
 data class ExamEntity(

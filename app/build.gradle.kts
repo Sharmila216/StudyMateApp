@@ -2,14 +2,15 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("com.google.devtools.ksp") version "1.9.24-1.0.20"
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.a216155_cikguizwan_lab5"
+    namespace = "com.example.a216155_cikguizwan_project2"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.example.a216155_cikguizwan_lab5"
+        applicationId = "com.example.a216155_cikguizwan_project2"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -67,4 +68,8 @@ dependencies {
     implementation("androidx.room:room-ktx:$room_version")
     ksp("androidx.room:room-compiler:$room_version")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.google.firebase:firebase-database-ktx:20.3.0")
+    implementation("com.google.firebase:firebase-analytics-ktx:21.5.0")
 }

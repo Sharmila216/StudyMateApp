@@ -22,6 +22,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "A216155_CIKGUIZWAN_LAB5"
+rootProject.name = "A216155_CIKGUIZWAN_PROJECT2"
 include(":app")
  

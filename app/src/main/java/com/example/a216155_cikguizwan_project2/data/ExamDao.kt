@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5.data
+package com.example.a216155_cikguizwan_project2.data
 
 import androidx.room.Dao
 import androidx.room.Insert

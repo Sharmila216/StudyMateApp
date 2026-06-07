@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5
+package com.example.a216155_cikguizwan_project2
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,10 +32,10 @@ import java.util.*
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.foundation.lazy.grid.*
 import androidx.compose.ui.graphics.vector.ImageVector
-import com.example.a216155_cikguizwan_lab5.ui.them.MidnightBlue
+import com.example.a216155_cikguizwan_project2.ui.them.MidnightBlue
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material.icons.filled.MenuBook
-import com.example.a216155_cikguizwan_lab5.ui.them.CleanGrayBg
+import com.example.a216155_cikguizwan_project2.ui.them.CleanGrayBg
 import java.util.Calendar
 import java.util.Locale
 import androidx.compose.runtime.rememberCoroutineScope
@@ -45,7 +45,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.a216155_cikguizwan_lab5.ui.them.SurfaceWhite
+import com.example.a216155_cikguizwan_project2.ui.them.SurfaceWhite
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.runtime.getValue
@@ -87,6 +87,9 @@ import kotlin.math.roundToInt
 import kotlin.math.sin
 import androidx.compose.ui.platform.LocalContext
 import android.os.Build
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+
 // --- THEME COLORS ---
 // --- NEW DEEP MIDNIGHT THEME COLORS ---
 val MidnightBlue = Color(0xFF1A237E)      // Primary (Replacing PrimaryPurple)
@@ -115,9 +118,75 @@ private data class PomodoroSettings(
 private val pomodoroMinuteOptions: List<Int> = (1..5).toList() + (10..55 step 5).toList()
 private val pomodoroIntervalOptions: List<Int> = (1..10).toList()
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), android.hardware.SensorEventListener {
+
+    // --- SENSOR MANAGER ---
+    private lateinit var sensorManager: android.hardware.SensorManager
+    private var lightSensor: android.hardware.Sensor? = null
+    var currentLightLevel: Float = 0f
+
+    override fun onSensorChanged(event: android.hardware.SensorEvent?) {
+        if (event?.sensor?.type == android.hardware.Sensor.TYPE_LIGHT) {
+            currentLightLevel = event.values[0]
+            android.util.Log.d("SensorManager", "💡 Light level changed: ${currentLightLevel} lux")
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: android.hardware.Sensor?, accuracy: Int) {
+        android.util.Log.d("SensorManager", "⚙️ Sensor accuracy changed: $accuracy")
+    }
+
+    override fun onStart() {
+        super.onStart()
+        android.util.Log.d("Lifecycle", "onStart called")
+        lightSensor?.let {
+            sensorManager.registerListener(
+                this,
+                it,
+                android.hardware.SensorManager.SENSOR_DELAY_NORMAL
+            )
+            android.util.Log.d("SensorManager", "✅ Sensor registered in onStart")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        android.util.Log.d("Lifecycle", "onResume called")
+        lightSensor?.let {
+            sensorManager.registerListener(
+                this,
+                it,
+                android.hardware.SensorManager.SENSOR_DELAY_NORMAL
+            )
+            android.util.Log.d("SensorManager", "✅ Sensor registered in onResume")
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        android.util.Log.d("Lifecycle", "onPause called")
+        sensorManager.unregisterListener(this)
+        android.util.Log.d("SensorManager", "⛔ Sensor unregistered in onPause")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        android.util.Log.d("Lifecycle", "onStop called")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        android.util.Log.d("Lifecycle", "onDestroy called")
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // --- INIT SENSOR ---
+        sensorManager = getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager
+        lightSensor = sensorManager.getDefaultSensor(android.hardware.Sensor.TYPE_LIGHT)
+        android.util.Log.d("SensorManager", "🔍 Light sensor available: ${lightSensor != null}")
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(
                 arrayOf(android.Manifest.permission.POST_NOTIFICATIONS),
@@ -133,22 +202,17 @@ class MainActivity : ComponentActivity() {
                         factory = StudyMateViewModelFactory(application, app.repository)
                     )
 
-                    // THE NAVHOST: Handle high-level screen navigation
                     NavHost(navController = navController, startDestination = "main_app") {
                         composable("main_app") {
                             StudyMateApp(navController, viewModel)
                         }
-
-                        // THE SAVE LOGIC IS HERE
                         composable("profile_edit") {
                             val state = viewModel.uiState.value
                             EditProfileScreen(
                                 currentFirst = state.firstName,
                                 currentLast = state.lastName,
                                 onSave = { first, last ->
-                                    // 1. Update the data in the ViewModel
                                     viewModel.updateUserProfile(first, last)
-                                    // 2. Return to the previous screen (Profile Tab)
                                     navController.popBackStack()
                                 },
                                 onCancel = { navController.popBackStack() }
@@ -231,6 +295,34 @@ fun StudyMateApp(navController: NavHostController, viewModel: StudyMateApp) { //
                         pomodoroBackTarget = "menu"
                         currentPage = "pomodoro_timer"
                     },
+                    onOpenQuote = { currentPage = "quote" },
+                    onOpenCloudBackup = { currentPage = "cloud_backup" },
+                    onOpenStudyBooks = { currentPage = "study_books" },  // ADD THIS
+                    onOpenDictionary = { currentPage = "dictionary" },
+                    onOpenStudyTips = { currentPage = "study_tips" },
+
+                    )
+                "quote" -> QuoteScreen(
+                    paddingValues = paddingValues,
+                    onBack = { currentPage = "menu" }
+                )
+                "cloud_backup" -> CloudBackupScreen(
+                    paddingValues = paddingValues,
+                    viewModel = viewModel,
+                    onBack = { currentPage = "menu" }
+                )
+                "study_books" -> StudyBooksScreen(
+                    paddingValues = paddingValues,
+                    onBack = { currentPage = "menu" }
+                )
+                "dictionary" -> DictionaryScreen(
+                    paddingValues = paddingValues,
+                    onBack = { currentPage = "menu" }
+                )
+                "study_tips" -> StudyTipsScreen(
+                    paddingValues = paddingValues,
+                    viewModel = viewModel,
+                    onBack = { currentPage = "menu" }
                 )
                 "tasks_list" -> TasksListScreen(
                     paddingValues = paddingValues,
@@ -321,8 +413,9 @@ fun StudyMateApp(navController: NavHostController, viewModel: StudyMateApp) { //
                     }
                 }
                 "profile" -> ProfileScreen(
-                    uiState = uiState, // This passes the data from the ViewModel
+                    uiState = uiState,
                     paddingValues = paddingValues,
+                    viewModel = viewModel,
                     onEditClick = { navController.navigate("profile_edit") }
                 )
                 "add_new" -> AddNewScreen(
@@ -369,12 +462,20 @@ fun MenuScreen(
     onOpenTasks: () -> Unit = {},
     onOpenExams: () -> Unit = {},
     onOpenFocusTimer: () -> Unit = {},
+    onOpenQuote: () -> Unit = {},
+    onOpenCloudBackup: () -> Unit = {},
+    onOpenStudyBooks: () -> Unit = {},
+    onOpenDictionary: () -> Unit = {},
+    onOpenStudyTips: () -> Unit = {},
+
 ) {
     val menuItems = listOf(
         Pair("Tasks", "📋"), Pair("Classes", "📚"), Pair("Exams", "✍️"),
         Pair("Vacations", "🏝️"), Pair("Xtra", "⚡"), Pair("Focus Timer", "⏳"),
         Pair("Ai Schedule Scan", "📸"), Pair("Calendar Sync", "🔗"),
-        Pair("Settings", "🛠️"), Pair("Schedule Set Up", "🗓️")
+        Pair("Settings", "🛠️"), Pair("Schedule Set Up", "🗓️"), Pair("Quote", "💬"),
+        Pair("Cloud Backup", "☁️"), Pair("Study Books", "📖"), Pair("Dictionary", "📚"),// ADD THIS
+        Pair("Study Tips", "💡")
     )
 
     Column(
@@ -426,6 +527,41 @@ fun MenuScreen(
                     ) { cardContent() }
                     "Focus Timer" -> Card(
                         onClick = onOpenFocusTimer,
+                        modifier = Modifier.aspectRatio(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(2.dp),
+                    ) { cardContent() }
+                    "Quote" -> Card(
+                        onClick = onOpenQuote,
+                        modifier = Modifier.aspectRatio(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),  // CHANGE THIS
+                        elevation = CardDefaults.cardElevation(2.dp),
+                    ) { cardContent() }
+                    "Cloud Backup" -> Card(
+                        onClick = onOpenCloudBackup,
+                        modifier = Modifier.aspectRatio(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),  // CHANGE THIS
+                        elevation = CardDefaults.cardElevation(2.dp),
+                    ) { cardContent() }
+                    "Study Books" -> Card(
+                        onClick = onOpenStudyBooks,
+                        modifier = Modifier.aspectRatio(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(2.dp),
+                    ) { cardContent() }
+                    "Dictionary" -> Card(
+                        onClick = onOpenDictionary,
+                        modifier = Modifier.aspectRatio(1f),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(2.dp),
+                    ) { cardContent() }
+                    "Study Tips" -> Card(
+                        onClick = onOpenStudyTips,
                         modifier = Modifier.aspectRatio(1f),
                         shape = RoundedCornerShape(16.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -1537,32 +1673,431 @@ fun StandardTimePickerField(
 fun ProfileScreen(
     uiState: UiState,
     paddingValues: PaddingValues,
+    viewModel: StudyMateApp,
     onEditClick: () -> Unit
 ) {
-    // 1. Create the scroll state
+    val context = LocalContext.current
     val scrollState = rememberScrollState()
+    val activity = context as? MainActivity
 
+    // --- SENSOR STATE ---
+    var lightLevel by remember { mutableStateOf(0f) }
+    var sensorMessage by remember { mutableStateOf("") }
+    var sensorMessageColor by remember { mutableStateOf(Color(0xFF856404)) }
+    var sensorMessageBg by remember { mutableStateOf(Color(0xFFFFF9C4)) }
+
+    // --- PHOTO STATE ---
+    var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+
+    // ✅ FIX: Save photo to APP INTERNAL STORAGE (no permission needed, survives app close)
+    fun savePhotoToInternalStorage(bitmap: android.graphics.Bitmap) {
+        try {
+            val file = java.io.File(context.filesDir, "profile_picture.jpg")
+            file.outputStream().use { outputStream ->
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 95, outputStream)
+            }
+            android.util.Log.d("ProfilePic", "✅ Photo saved to internal storage: ${file.absolutePath}")
+        } catch (e: Exception) {
+            android.util.Log.e("ProfilePic", "❌ Failed to save photo: ${e.message}")
+            e.printStackTrace()
+        }
+    }
+
+    // ✅ FIX: Load photo from APP INTERNAL STORAGE
+    fun loadPhotoFromInternalStorage(): android.graphics.Bitmap? {
+        return try {
+            val file = java.io.File(context.filesDir, "profile_picture.jpg")
+            if (file.exists()) {
+                android.util.Log.d("ProfilePic", "✅ Photo loaded from internal storage")
+                android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+            } else {
+                android.util.Log.d("ProfilePic", "ℹ️ No saved photo found")
+                null
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ProfilePic", "❌ Failed to load photo: ${e.message}")
+            null
+        }
+    }
+
+    // --- IMAGE QUALITY ANALYSIS ---
+    fun calculateBlurScore(bitmap: android.graphics.Bitmap): Double {
+        val width = minOf(bitmap.width, 100)
+        val height = minOf(bitmap.height, 100)
+        val scaledBitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, width, height, true)
+        var sumSq = 0.0
+        val count = width * height
+        for (x in 0 until width) {
+            for (y in 0 until height) {
+                val pixel = scaledBitmap.getPixel(x, y)
+                val gray = (android.graphics.Color.red(pixel) * 0.299 +
+                        android.graphics.Color.green(pixel) * 0.587 +
+                        android.graphics.Color.blue(pixel) * 0.114)
+                sumSq += gray * gray
+            }
+        }
+        return sumSq / count
+    }
+
+    fun calculateImageBrightness(bitmap: android.graphics.Bitmap): Double {
+        var totalBrightness = 0.0
+        for (i in 0 until 100) {
+            val x = (Math.random() * bitmap.width).toInt().coerceIn(0, bitmap.width - 1)
+            val y = (Math.random() * bitmap.height).toInt().coerceIn(0, bitmap.height - 1)
+            val pixel = bitmap.getPixel(x, y)
+            val r = android.graphics.Color.red(pixel)
+            val g = android.graphics.Color.green(pixel)
+            val b = android.graphics.Color.blue(pixel)
+            totalBrightness += (0.299 * r + 0.587 * g + 0.114 * b)
+        }
+        return totalBrightness / 100
+    }
+
+    fun analyzeImageQuality(bitmap: android.graphics.Bitmap, lightLux: Float): String {
+        val brightness = calculateImageBrightness(bitmap)
+        val blurScore = calculateBlurScore(bitmap)
+        android.util.Log.d("SensorManager", "📸 Image Analysis — Light: ${lightLux}lux, Brightness: $brightness, BlurScore: $blurScore")
+        return when {
+            lightLux < 10f -> "DARK_CRITICAL"
+            brightness < 40 -> "DARK"
+            lightLux < 50f && brightness < 80 -> "LOW_LIGHT"
+            blurScore < 40 -> "BLURRY"
+            brightness > 230 -> "OVEREXPOSED"
+            else -> "CLEAR"
+        }
+    }
+
+    // ✅ Load saved photo when screen opens
+    LaunchedEffect(uiState.profilePicturePath) {
+        if (uiState.profilePicturePath.isNotBlank()) {
+            try {
+                val file = java.io.File(uiState.profilePicturePath)
+                if (file.exists()) {
+                    capturedBitmap = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                    android.util.Log.d("Room", "✅ Picture loaded from Room path: ${uiState.profilePicturePath}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("Room", "❌ Failed to load picture: ${e.message}")
+            }
+        } else {
+            capturedBitmap = loadPhotoFromInternalStorage()
+        }
+    }
+
+    // ✅ Light sensor monitoring every second with Logcat
+    LaunchedEffect(Unit) {
+        while (true) {
+            lightLevel = activity?.currentLightLevel ?: 0f
+
+            // Logcat output for sensor
+            val lightStatus = when {
+                lightLevel < 10f -> "CRITICAL DARK"
+                lightLevel < 50f -> "LOW LIGHT"
+                lightLevel < 200f -> "MEDIUM LIGHT"
+                lightLevel < 500f -> "GOOD LIGHT"
+                else -> "BRIGHT"
+            }
+            android.util.Log.d("SensorManager", "💡 Light Sensor Reading: ${lightLevel}lux — Status: $lightStatus")
+
+            // UI message
+            sensorMessage = when {
+                lightLevel < 10f -> "⚫ Too dark (${lightLevel.toInt()} lux) — Move to brighter area!"
+                lightLevel < 50f -> "🔴 Low light (${lightLevel.toInt()} lux) — Photos may be dark"
+                lightLevel < 200f -> "🟡 Medium light (${lightLevel.toInt()} lux) — Acceptable"
+                lightLevel < 500f -> "🟢 Good light (${lightLevel.toInt()} lux) — Perfect for photos!"
+                else -> "☀️ Very bright (${lightLevel.toInt()} lux) — Excellent!"
+            }
+
+            sensorMessageColor = when {
+                lightLevel < 50f -> Color.Red
+                lightLevel < 200f -> Color(0xFFE65100)
+                else -> Color(0xFF2E7D32)
+            }
+
+            sensorMessageBg = when {
+                lightLevel < 50f -> Color(0xFFFFEBEE)
+                lightLevel < 200f -> Color(0xFFFFF3E0)
+                else -> Color(0xFFE8F5E9)
+            }
+
+            delay(1000)
+        }
+    }
+
+    // --- CAMERA LAUNCHER ---
+    val cameraLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            val matrix = android.graphics.Matrix()
+            matrix.postRotate(90f)
+            val rotatedBitmap = android.graphics.Bitmap.createBitmap(
+                bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
+            )
+            val quality = analyzeImageQuality(rotatedBitmap, lightLevel)
+            android.util.Log.d("SensorManager", "📷 Camera photo taken — Quality: $quality, Light: ${lightLevel}lux")
+
+            when (quality) {
+                "DARK_CRITICAL" -> {
+                    sensorMessage = "❌ Too dark (${lightLevel.toInt()} lux)! Move to well-lit area"
+                    sensorMessageColor = Color.Red
+                    sensorMessageBg = Color(0xFFFFEBEE)
+                    android.util.Log.d("SensorManager", "❌ Camera photo REJECTED — Too dark")
+                }
+                "DARK", "LOW_LIGHT" -> {
+                    sensorMessage = "❌ Photo too dark! Ensure good lighting"
+                    sensorMessageColor = Color.Red
+                    sensorMessageBg = Color(0xFFFFEBEE)
+                    android.util.Log.d("SensorManager", "❌ Camera photo REJECTED — Dark image")
+                }
+                "BLURRY" -> {
+                    sensorMessage = "❌ Photo is blurry! Hold phone steady"
+                    sensorMessageColor = Color.Red
+                    sensorMessageBg = Color(0xFFFFEBEE)
+                    android.util.Log.d("SensorManager", "❌ Camera photo REJECTED — Blurry")
+                }
+                "OVEREXPOSED" -> {
+                    sensorMessage = "❌ Photo too bright! Adjust lighting"
+                    sensorMessageColor = Color.Red
+                    sensorMessageBg = Color(0xFFFFEBEE)
+                    android.util.Log.d("SensorManager", "❌ Camera photo REJECTED — Overexposed")
+                }
+                else -> {
+                    capturedBitmap = rotatedBitmap
+                    savePhotoToInternalStorage(rotatedBitmap)
+                    val picPath = java.io.File(context.filesDir, "profile_picture.jpg").absolutePath
+                    viewModel.saveProfilePicturePath(picPath)
+                    sensorMessage = "✅ Profile picture updated! Good quality (${lightLevel.toInt()} lux)"
+                    sensorMessageColor = Color(0xFF2E7D32)
+                    sensorMessageBg = Color(0xFFE8F5E9)
+                    android.util.Log.d("SensorManager", "✅ Camera photo ACCEPTED and saved — Light: ${lightLevel}lux")
+                    android.util.Log.d("Room", "✅ Picture path saved to Room: $picPath")
+                }
+            }
+        }
+    }
+
+    // --- GALLERY LAUNCHER ---
+    val galleryLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            try {
+                val bitmap = android.provider.MediaStore.Images.Media.getBitmap(
+                    context.contentResolver, uri
+                )
+                val quality = analyzeImageQuality(bitmap, lightLevel)
+                android.util.Log.d("SensorManager", "🖼️ Gallery photo selected — Quality: $quality, Light: ${lightLevel}lux")
+
+                when (quality) {
+                    "DARK_CRITICAL", "DARK", "LOW_LIGHT" -> {
+                        sensorMessage = "❌ Image too dark! Choose a brighter photo"
+                        sensorMessageColor = Color.Red
+                        sensorMessageBg = Color(0xFFFFEBEE)
+                        android.util.Log.d("SensorManager", "❌ Gallery photo REJECTED — Dark image")
+                    }
+                    "BLURRY" -> {
+                        sensorMessage = "❌ Image is blurry! Choose a clearer photo"
+                        sensorMessageColor = Color.Red
+                        sensorMessageBg = Color(0xFFFFEBEE)
+                        android.util.Log.d("SensorManager", "❌ Gallery photo REJECTED — Blurry")
+                    }
+                    "OVEREXPOSED" -> {
+                        sensorMessage = "❌ Image too bright! Choose another photo"
+                        sensorMessageColor = Color.Red
+                        sensorMessageBg = Color(0xFFFFEBEE)
+                        android.util.Log.d("SensorManager", "❌ Gallery photo REJECTED — Overexposed")
+                    }
+                    else -> {
+                        capturedBitmap = bitmap
+                        savePhotoToInternalStorage(bitmap)
+                        sensorMessage = "✅ Profile picture updated from gallery!"
+                        sensorMessageColor = Color(0xFF2E7D32)
+                        sensorMessageBg = Color(0xFFE8F5E9)
+                        android.util.Log.d("SensorManager", "✅ Gallery photo ACCEPTED and saved")
+                    }
+                }
+            } catch (e: Exception) {
+                sensorMessage = "❌ Could not load image"
+                sensorMessageColor = Color.Red
+                sensorMessageBg = Color(0xFFFFEBEE)
+                android.util.Log.e("SensorManager", "❌ Gallery error: ${e.message}")
+            }
+        }
+    }
+
+    // --- PERMISSION LAUNCHER ---
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            cameraLauncher.launch(null)
+        } else {
+            sensorMessage = "❌ Camera permission denied!"
+            sensorMessageColor = Color.Red
+            sensorMessageBg = Color(0xFFFFEBEE)
+        }
+    }
+
+    // --- OPEN CAMERA ---
+    val openCamera = {
+        val permission = android.Manifest.permission.CAMERA
+        if (androidx.core.content.ContextCompat.checkSelfPermission(context, permission)
+            == android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            cameraLauncher.launch(null)
+        } else {
+            permissionLauncher.launch(permission)
+        }
+    }
+
+    // --- IMAGE SOURCE DIALOG ---
+    if (showImageSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text("Change Profile Picture", fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Card(
+                        onClick = {
+                            showImageSourceDialog = false
+                            openCamera()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CameraAlt, null, tint = MidnightBlue)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Take Photo", fontWeight = FontWeight.Bold, color = MidnightBlue)
+                                Text(
+                                    "Light: ${lightLevel.toInt()} lux — ${
+                                        if (lightLevel < 50f) "⚠️ Low light!" else "✅ Good light"
+                                    }",
+                                    fontSize = 12.sp,
+                                    color = if (lightLevel < 50f) Color.Red else SubtextGray
+                                )
+                            }
+                        }
+                    }
+                    Card(
+                        onClick = {
+                            showImageSourceDialog = false
+                            galleryLauncher.launch("image/*")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Image, null, tint = MidnightBlue)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text("Choose from Gallery", fontWeight = FontWeight.Bold, color = MidnightBlue)
+                                Text("Pick an existing photo", fontSize = 12.sp, color = SubtextGray)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = { showImageSourceDialog = false }) {
+                    Text("Cancel", color = MidnightBlue)
+                }
+            },
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // --- UI ---
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(CleanGrayBg)
             .padding(paddingValues)
-            // 2. Add the verticalScroll modifier here
             .verticalScroll(scrollState),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // --- Top Bar ---
+        // Top Bar
         Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("Profile", modifier = Modifier.align(Alignment.Center), fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            IconButton(onClick = onEditClick, modifier = Modifier.align(Alignment.CenterEnd)) {
+            Text(
+                "Profile",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+            IconButton(
+                onClick = onEditClick,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
                 Icon(Icons.Default.Edit, null, tint = Color.Gray)
             }
         }
 
-        // --- Profile Image ---
+        // Sensor Message Card
+        if (sensorMessage.isNotEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = sensorMessageBg)
+            ) {
+                Text(
+                    sensorMessage,
+                    modifier = Modifier.padding(12.dp),
+                    fontSize = 13.sp,
+                    color = sensorMessageColor
+                )
+            }
+        }
+
+        // Light Level Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 4.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White)
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.WbSunny, null, tint = MidnightBlue, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "💡 Light Sensor: ${lightLevel.toInt()} lux — ${
+                        when {
+                            lightLevel < 10f -> "⚫ Critical Dark"
+                            lightLevel < 50f -> "🔴 Low Light"
+                            lightLevel < 200f -> "🟡 Medium Light"
+                            lightLevel < 500f -> "🟢 Good Light"
+                            else -> "☀️ Very Bright"
+                        }
+                    }",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Profile Image
         Box(
             contentAlignment = Alignment.BottomEnd,
-            modifier = Modifier.padding(top = 16.dp)
+            modifier = Modifier.padding(top = 8.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -1575,58 +2110,100 @@ fun ProfileScreen(
                                 pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
                             )
                         )
-                    },
+                    }
+                    .clip(CircleShape)
+                    .clickable { showImageSourceDialog = true },
                 contentAlignment = Alignment.Center
             ) {
-                Text("Profile Picture", fontSize = 12.sp, color = Color.Gray)
+                if (capturedBitmap != null) {
+                    Image(
+                        bitmap = capturedBitmap!!.asImageBitmap(),
+                        contentDescription = "Profile Picture",
+                        modifier = Modifier
+                            .size(116.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Default.Person, null,
+                            tint = Color.Gray,
+                            modifier = Modifier.size(40.dp)
+                        )
+                        Text("Add Photo", fontSize = 11.sp, color = Color.Gray)
+                    }
+                }
             }
 
             Surface(
-                modifier = Modifier.size(35.dp).offset(x = (-4).dp, y = (-4).dp),
+                modifier = Modifier
+                    .size(35.dp)
+                    .offset(x = (-4).dp, y = (-4).dp)
+                    .clickable { showImageSourceDialog = true },
                 shape = CircleShape,
                 color = MidnightBlue,
                 shadowElevation = 4.dp
             ) {
-                Icon(Icons.Default.Edit, "Edit", tint = Color.White, modifier = Modifier.padding(8.dp))
+                Icon(
+                    Icons.Default.CameraAlt,
+                    "Change Photo",
+                    tint = Color.White,
+                    modifier = Modifier.padding(8.dp)
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        Text(text = "${uiState.firstName} ${uiState.lastName}", fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        // Name from ViewModel (saved in Firebase + SharedPrefs)
+        Text(
+            text = if (uiState.firstName.isNotBlank() || uiState.lastName.isNotBlank())
+                "${uiState.firstName} ${uiState.lastName}".trim()
+            else "Tap ✏️ to add your name",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (uiState.firstName.isBlank() && uiState.lastName.isBlank())
+                Color.Gray else TitleDark
+        )
         Text("sharmilakjvadivazagan@gmail.com", fontSize = 14.sp, color = Color.Gray)
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Stat Cards ---
+        // Stat Cards
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ProfileStatCard("👀 Pending Tasks", "0", "Next 7 Days", Modifier.weight(1f))
-                ProfileStatCard("⚠️ Overdue Tasks", "1", "Total", Modifier.weight(1f), countColor = Color.Red)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ProfileStatCard("Pending Tasks", "0", "Next 7 Days", Modifier.weight(1f))
+                ProfileStatCard(
+                    "Overdue Tasks", "1", "Total",
+                    Modifier.weight(1f), countColor = Color.Red
+                )
             }
             Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                ProfileStatCard("👍 Tasks Completed", "0", "Last 7 Days", Modifier.weight(1f))
-                ProfileStatCard("🔥 Your Streak", "0", "Total streak", Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                ProfileStatCard("Tasks Completed", "0", "Last 7 Days", Modifier.weight(1f))
+                ProfileStatCard("Your Streak", "0", "Total streak", Modifier.weight(1f))
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // --- Menu Options ---
         Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
             ProfileOptionItem(Icons.Default.WorkspacePremium, "Premium Subscription", MidnightBlue)
             ProfileOptionItem(Icons.Default.ExitToApp, "Log out", MidnightBlue)
-
             Spacer(modifier = Modifier.height(20.dp))
-
-            // Now you will be able to scroll down to see this!
             Text(
                 "Delete Account",
                 color = Color(0xFFE91E63),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 32.dp), // Added bottom padding so it's not hugging the edge
+                    .padding(bottom = 32.dp),
                 textAlign = TextAlign.Center
             )
         }
@@ -1780,7 +2357,7 @@ fun EditField(label: String, value: String, onValueChange: (String) -> Unit) {
 fun DashboardScreen(paddingValues: PaddingValues, onSearchClick: () -> Unit) {
     Column(modifier = Modifier
         .fillMaxSize()
-        .background(com.example.a216155_cikguizwan_lab5.CleanGrayBg)
+        .background(com.example.a216155_cikguizwan_project2.CleanGrayBg)
         .padding(paddingValues)
         .verticalScroll(rememberScrollState())) {
         HeaderSection(onSearchClick)
@@ -1969,7 +2546,7 @@ fun CalendarHeader(
         OutlinedButton(
             onClick = onToday,
             shape = RoundedCornerShape(12.dp),
-            border = BorderStroke(2.dp, com.example.a216155_cikguizwan_lab5.CleanGrayBg)
+            border = BorderStroke(2.dp, com.example.a216155_cikguizwan_project2.CleanGrayBg)
         ) {
             Text("Today", color = MidnightBlue, fontWeight = FontWeight.Bold)
         }
@@ -3865,6 +4442,1418 @@ fun DetailChip(icon: ImageVector, text: String) {
             Icon(icon, null, modifier = Modifier.size(16.dp), tint = Color.Gray)
             Spacer(modifier = Modifier.width(6.dp))
             Text(text, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+        }
+    }
+}
+@Composable
+fun QuoteScreen(
+    paddingValues: PaddingValues,
+    onBack: () -> Unit
+) {
+    var quote by remember { mutableStateOf("Tap the button to get your daily quote!") }
+    var author by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    fun fetchQuote() {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                isLoading = true
+                errorMsg = ""
+            }
+            try {
+                val url = java.net.URL("https://zenquotes.io/api/random")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Accept", "application/json")
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.connect()
+
+                val responseCode = connection.responseCode
+                if (responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    // ZenQuotes returns: [{"q":"quote","a":"author"}]
+                    val q = response.substringAfter("\"q\":\"").substringBefore("\"")
+                    val a = response.substringAfter("\"a\":\"").substringBefore("\"")
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        quote = q
+                        author = a
+                    }
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        errorMsg = "Error: $responseCode"
+                    }
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    errorMsg = "Error: ${e.message}"
+                }
+            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                isLoading = false
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CleanGrayBg)
+            .padding(paddingValues),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MidnightBlue)
+            }
+            Text(
+                "💬 Daily Quote",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Spacer(Modifier.height(40.dp))
+
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(4.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text("❝", fontSize = 40.sp, color = MidnightBlue)
+                Spacer(Modifier.height(12.dp))
+
+                if (isLoading) {
+                    CircularProgressIndicator(color = MidnightBlue)
+                } else {
+                    Text(
+                        text = quote,
+                        fontSize = 16.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        textAlign = TextAlign.Center,
+                        color = TitleDark,
+                        lineHeight = 26.sp
+                    )
+                    if (author.isNotEmpty()) {
+                        Spacer(Modifier.height(16.dp))
+                        Text(
+                            text = "— $author",
+                            fontSize = 14.sp,
+                            color = MidnightBlue,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    if (errorMsg.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            errorMsg,
+                            color = Color.Red,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(32.dp))
+
+        Button(
+            onClick = { fetchQuote() },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .height(55.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MidnightBlue),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Icon(Icons.Default.Refresh, null, tint = Color.White)
+            Spacer(Modifier.width(8.dp))
+            Text("Get New Quote", color = Color.White, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+@Composable
+fun CloudBackupScreen(
+    paddingValues: PaddingValues,
+    viewModel: StudyMateApp,
+    onBack: () -> Unit
+) {
+    val uiState by viewModel.uiState
+    var isRestoring by remember { mutableStateOf(false) }
+    var restoreMessage by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CleanGrayBg)
+            .padding(paddingValues)
+    ) {
+        // Top Bar
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MidnightBlue)
+            }
+            Text(
+                "☁️ Cloud Backup",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Status Card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8EAF6))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Cloud, null, tint = MidnightBlue)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Firebase Realtime Database",
+                                fontWeight = FontWeight.Bold,
+                                color = MidnightBlue
+                            )
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            "Your data is automatically backed up to cloud when you add, update or delete tasks and exams.",
+                            fontSize = 13.sp,
+                            color = SubtextGray
+                        )
+                    }
+                }
+            }
+
+            // Stats
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("📋", fontSize = 28.sp)
+                            Text(
+                                "${uiState.tasks.size}",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MidnightBlue
+                            )
+                            Text("Tasks Backed Up", fontSize = 12.sp, color = SubtextGray)
+                        }
+                    }
+                    Card(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("✍️", fontSize = 28.sp)
+                            Text(
+                                "${uiState.exams.size}",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = MidnightBlue
+                            )
+                            Text("Exams Backed Up", fontSize = 12.sp, color = SubtextGray)
+                        }
+                    }
+                }
+            }
+
+            // Restore Message
+            item {
+                if (restoreMessage.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (restoreMessage.startsWith("✅"))
+                                Color(0xFFE8F5E9) else Color(0xFFFFEBEE)
+                        )
+                    ) {
+                        Text(
+                            restoreMessage,
+                            modifier = Modifier.padding(12.dp),
+                            color = if (restoreMessage.startsWith("✅"))
+                                Color(0xFF2E7D32) else Color.Red,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+                Button(
+                    onClick = {
+                        isRestoring = true
+                        restoreMessage = ""
+                        viewModel.restoreFromFirebase()
+                        scope.launch {
+                            kotlinx.coroutines.delay(2000)
+                            isRestoring = false
+                            restoreMessage = "✅ Data restored from cloud successfully!"
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(55.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = MidnightBlue),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = !isRestoring
+                ) {
+                    if (isRestoring) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("Restoring...", color = Color.White, fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.Restore, null, tint = Color.White)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Restore Data from Cloud", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Tasks List
+            item {
+                Text("📋 Tasks in Cloud", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            if (uiState.tasks.isEmpty()) {
+                item {
+                    Text("No tasks backed up yet.", color = SubtextGray, modifier = Modifier.padding(8.dp))
+                }
+            } else {
+                items(uiState.tasks) { task ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.CheckCircle, null,
+                                tint = if (task.isCompleted) Color.Green else Color.LightGray,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(task.title, fontWeight = FontWeight.Bold)
+                                Text(task.dueDateDisplay, fontSize = 12.sp, color = SubtextGray)
+                            }
+                            Surface(
+                                color = MidnightBlue.copy(alpha = 0.1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    task.subject.ifBlank { "—" },
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 11.sp,
+                                    color = MidnightBlue
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Exams List
+            item {
+                Text("✍️ Exams in Cloud", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            if (uiState.exams.isEmpty()) {
+                item {
+                    Text("No exams backed up yet.", color = SubtextGray, modifier = Modifier.padding(8.dp))
+                }
+            } else {
+                items(uiState.exams) { exam ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("✍️", fontSize = 20.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(exam.name, fontWeight = FontWeight.Bold)
+                                Text(exam.dateDisplay, fontSize = 12.sp, color = SubtextGray)
+                            }
+                            Surface(
+                                color = Color(0xFFFFF3E0),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    exam.examType,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 11.sp,
+                                    color = Color(0xFFE65100)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+@Composable
+fun StudyBooksScreen(
+    paddingValues: PaddingValues,
+    onBack: () -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var books by remember { mutableStateOf<List<Triple<String, String, String>>>(emptyList()) }
+    var errorMsg by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+
+    fun searchBooks(query: String) {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                isLoading = true
+                errorMsg = ""
+                books = emptyList()
+            }
+            try {
+                val encodedQuery = query.replace(" ", "+")
+                val url = java.net.URL("https://openlibrary.org/search.json?q=$encodedQuery&limit=10")
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Accept", "application/json")
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.connect()
+
+                if (connection.responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    val results = mutableListOf<Triple<String, String, String>>()
+                    val docsStart = response.indexOf("\"docs\":[")
+                    if (docsStart != -1) {
+                        var i = docsStart
+                        var count = 0
+                        while (count < 10) {
+                            val titleStart = response.indexOf("\"title\":\"", i)
+                            if (titleStart == -1) break
+                            val titleEnd = response.indexOf("\"", titleStart + 9)
+                            val title = response.substring(titleStart + 9, titleEnd)
+
+                            val authorStart = response.indexOf("\"author_name\":[\"", i)
+                            val author = if (authorStart != -1 && authorStart < titleStart + 500) {
+                                val authorEnd = response.indexOf("\"", authorStart + 16)
+                                response.substring(authorStart + 16, authorEnd)
+                            } else "Unknown Author"
+
+                            val yearStart = response.indexOf("\"first_publish_year\":", i)
+                            val year = if (yearStart != -1 && yearStart < titleStart + 500) {
+                                val yearEnd = response.indexOf(",", yearStart + 21)
+                                response.substring(yearStart + 21, yearEnd).trim()
+                            } else "—"
+
+                            results.add(Triple(title, author, year))
+                            i = titleEnd
+                            count++
+                        }
+                    }
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        books = results
+                        if (results.isEmpty()) errorMsg = "No books found for \"$query\""
+                    }
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        errorMsg = "Error: ${connection.responseCode}"
+                    }
+                }
+            } catch (e: Exception) {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    errorMsg = "Error: ${e.message}"
+                }
+            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                isLoading = false
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CleanGrayBg)
+            .padding(paddingValues)
+    ) {
+        // Top Bar
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MidnightBlue)
+            }
+            Text(
+                "📖 Study Books",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Search Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Search books e.g. Mathematics") },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MidnightBlue,
+                    focusedBorderColor = MidnightBlue,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White,
+                )
+            )
+            Button(
+                onClick = {
+                    if (searchQuery.isNotBlank()) searchBooks(searchQuery)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = MidnightBlue),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(55.dp)
+            ) {
+                Icon(Icons.Default.Search, null, tint = Color.White)
+            }
+        }
+
+        // Subject Quick Chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Mathematics", "Science", "History", "Physics", "Biology", "English").forEach { subject ->
+                Surface(
+                    onClick = {
+                        searchQuery = subject
+                        searchBooks(subject)
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MidnightBlue.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, MidnightBlue.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        subject,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        fontSize = 12.sp,
+                        color = MidnightBlue,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        val context = LocalContext.current
+
+        // Results
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = MidnightBlue)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Searching books...", color = SubtextGray)
+                        }
+                    }
+                }
+            } else if (errorMsg.isNotEmpty()) {
+                item {
+                    Text(errorMsg, color = Color.Red, modifier = Modifier.padding(8.dp))
+                }
+            } else if (books.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📚", fontSize = 48.sp)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Search for study books by subject",
+                                color = SubtextGray,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
+                }
+            } else {
+                item {
+                    Text(
+                        "${books.size} books found",
+                        fontWeight = FontWeight.Bold,
+                        color = MidnightBlue,
+                        fontSize = 14.sp
+                    )
+                }
+
+                items(books) { (title, author, year) ->
+                    Card(
+                        onClick = {
+                            val searchUrl = "https://openlibrary.org/search?q=${title.replace(" ", "+")}"
+                            val intent = android.content.Intent(
+                                android.content.Intent.ACTION_VIEW,
+                                android.net.Uri.parse(searchUrl)
+                            )
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MidnightBlue.copy(alpha = 0.1f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("📖", fontSize = 22.sp)
+                            }
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    title,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = TitleDark,
+                                    maxLines = 2
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    author,
+                                    fontSize = 12.sp,
+                                    color = SubtextGray
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Surface(
+                                    color = MidnightBlue.copy(alpha = 0.08f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Text(
+                                        "Published: $year",
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                        fontSize = 11.sp,
+                                        color = MidnightBlue
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// --- DATA CLASSES FOR DICTIONARY (must be OUTSIDE composable) ---
+data class DictionaryMeaning(
+    val partOfSpeech: String,
+    val definitions: List<String>,
+    val synonyms: List<String>
+)
+
+data class WordResult(
+    val word: String,
+    val phonetic: String,
+    val meanings: List<DictionaryMeaning>,
+    val origin: String
+)
+data class StudyTip(
+    val id: String = "",
+    val author: String = "",
+    val tip: String = "",
+    val subject: String = "",
+    val timestamp: Long = 0L
+)
+@Composable
+fun DictionaryScreen(
+    paddingValues: PaddingValues,
+    onBack: () -> Unit
+) {
+    var searchWord by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf("") }
+    var wordResult by remember { mutableStateOf<WordResult?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun fetchWord(query: String) {
+        scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                isLoading = true
+                errorMsg = ""
+                wordResult = null
+            }
+            try {
+                val url = java.net.URL(
+                    "https://api.dictionaryapi.dev/api/v2/entries/en/${query.trim().lowercase()}"
+                )
+                val connection = url.openConnection() as java.net.HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.setRequestProperty("Accept", "application/json")
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
+                connection.connect()
+
+                val responseCode = connection.responseCode
+                android.util.Log.d("DictionaryAPI", "🔍 Searching: $query — Response: $responseCode")
+
+                if (responseCode == 200) {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    android.util.Log.d("DictionaryAPI", "✅ Word found: $query")
+
+                    // Parse word
+                    val word = response.substringAfter("\"word\":\"").substringBefore("\"")
+
+                    // Parse phonetic
+                    val phonetic = if (response.contains("\"phonetic\":\"")) {
+                        response.substringAfter("\"phonetic\":\"").substringBefore("\"")
+                    } else ""
+
+                    // Parse origin
+                    val origin = if (response.contains("\"origin\":\"")) {
+                        response.substringAfter("\"origin\":\"").substringBefore("\"")
+                    } else ""
+
+                    // Parse meanings
+                    val meanings = mutableListOf<DictionaryMeaning>()
+                    var searchFrom = 0
+                    var meaningCount = 0
+
+                    while (meaningCount < 3) {
+                        val meaningStart = response.indexOf("\"partOfSpeech\":\"", searchFrom)
+                        if (meaningStart == -1) break
+
+                        val partOfSpeech = response.substring(
+                            meaningStart + 16,
+                            response.indexOf("\"", meaningStart + 16)
+                        )
+
+                        val definitions = mutableListOf<String>()
+                        var defSearchFrom = meaningStart
+                        var defCount = 0
+
+                        while (defCount < 3) {
+                            val defStart = response.indexOf("\"definition\":\"", defSearchFrom)
+                            if (defStart == -1) break
+                            val nextMeaning = response.indexOf("\"partOfSpeech\":", meaningStart + 16)
+                            if (nextMeaning != -1 && defStart > nextMeaning) break
+                            val defEnd = response.indexOf("\"", defStart + 14)
+                            val definition = response.substring(defStart + 14, defEnd)
+                            if (definition.isNotBlank()) definitions.add(definition)
+                            defSearchFrom = defEnd
+                            defCount++
+                        }
+
+                        val synonyms = mutableListOf<String>()
+                        val synStart = response.indexOf("\"synonyms\":[", meaningStart)
+                        if (synStart != -1) {
+                            val synEnd = response.indexOf("]", synStart)
+                            val synStr = response.substring(synStart + 12, synEnd)
+                            synStr.split(",").take(5).forEach { syn ->
+                                val cleanSyn = syn.replace("\"", "").trim()
+                                if (cleanSyn.isNotBlank()) synonyms.add(cleanSyn)
+                            }
+                        }
+
+                        if (definitions.isNotEmpty()) {
+                            meanings.add(DictionaryMeaning(partOfSpeech, definitions, synonyms))
+                        }
+
+                        searchFrom = response.indexOf("\"", meaningStart + 16) + 1
+                        meaningCount++
+                    }
+
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        wordResult = WordResult(word, phonetic, meanings, origin)
+                    }
+
+                } else if (responseCode == 404) {
+                    android.util.Log.d("DictionaryAPI", "❌ Word not found: $query")
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        errorMsg = "❌ Word \"$query\" not found. Try another word!"
+                    }
+                } else {
+                    kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                        errorMsg = "Error: $responseCode"
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DictionaryAPI", "❌ Error: ${e.message}")
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                    errorMsg = "❌ Error: ${e.message}"
+                }
+            }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                isLoading = false
+            }
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CleanGrayBg)
+            .padding(paddingValues)
+    ) {
+        // Top Bar
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MidnightBlue)
+            }
+            Text(
+                "📖 Dictionary",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Search Bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchWord,
+                onValueChange = { searchWord = it },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("Search a word e.g. photosynthesis") },
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MidnightBlue,
+                    focusedBorderColor = MidnightBlue,
+                    unfocusedContainerColor = Color.White,
+                    focusedContainerColor = Color.White,
+                )
+            )
+            Button(
+                onClick = { if (searchWord.isNotBlank()) fetchWord(searchWord) },
+                colors = ButtonDefaults.buttonColors(containerColor = MidnightBlue),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(55.dp)
+            ) {
+                Icon(Icons.Default.Search, null, tint = Color.White)
+            }
+        }
+
+        // Quick word chips
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("study", "education", "knowledge", "science", "mathematics", "biology").forEach { word ->
+                Surface(
+                    onClick = {
+                        searchWord = word
+                        fetchWord(word)
+                    },
+                    shape = RoundedCornerShape(20.dp),
+                    color = MidnightBlue.copy(alpha = 0.1f),
+                    border = BorderStroke(1.dp, MidnightBlue.copy(alpha = 0.3f))
+                ) {
+                    Text(
+                        word,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        fontSize = 12.sp,
+                        color = MidnightBlue,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Results
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            if (isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = MidnightBlue)
+                            Spacer(Modifier.height(12.dp))
+                            Text("Looking up word...", color = SubtextGray)
+                        }
+                    }
+                }
+            }
+
+            if (errorMsg.isNotEmpty() && !isLoading) {
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                    ) {
+                        Text(
+                            errorMsg,
+                            modifier = Modifier.padding(16.dp),
+                            color = Color.Red,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+
+            if (!isLoading && wordResult == null && errorMsg.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📖", fontSize = 48.sp)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                "Search any word to get its definition",
+                                color = SubtextGray,
+                                textAlign = TextAlign.Center,
+                                fontSize = 14.sp
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Great for understanding study terms!",
+                                color = MidnightBlue.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+                }
+            }
+
+            wordResult?.let { result ->
+
+                // Word Header Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MidnightBlue)
+                    ) {
+                        Column(modifier = Modifier.padding(20.dp)) {
+                            Text(
+                                result.word,
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White
+                            )
+                            if (result.phonetic.isNotBlank()) {
+                                Text(
+                                    result.phonetic,
+                                    fontSize = 16.sp,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
+                            if (result.origin.isNotBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    "Origin: ${result.origin}",
+                                    fontSize = 12.sp,
+                                    color = Color.White.copy(alpha = 0.7f)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Meanings
+                result.meanings.forEach { meaning ->
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(2.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+
+                                Surface(
+                                    color = MidnightBlue.copy(alpha = 0.1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text(
+                                        meaning.partOfSpeech,
+                                        modifier = Modifier.padding(
+                                            horizontal = 12.dp, vertical = 4.dp
+                                        ),
+                                        fontSize = 13.sp,
+                                        color = MidnightBlue,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+
+                                meaning.definitions.forEachIndexed { index, definition ->
+                                    Row(
+                                        modifier = Modifier.padding(bottom = 8.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Text(
+                                            "${index + 1}.",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MidnightBlue,
+                                            fontSize = 14.sp
+                                        )
+                                        Text(
+                                            definition,
+                                            fontSize = 14.sp,
+                                            color = TitleDark,
+                                            lineHeight = 20.sp
+                                        )
+                                    }
+                                }
+
+                                if (meaning.synonyms.isNotEmpty()) {
+                                    Spacer(Modifier.height(8.dp))
+                                    HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+                                    Spacer(Modifier.height(8.dp))
+                                    Text(
+                                        "Synonyms:",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = SubtextGray
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        meaning.synonyms.forEach { synonym ->
+                                            Surface(
+                                                onClick = {
+                                                    searchWord = synonym
+                                                    fetchWord(synonym)
+                                                },
+                                                shape = RoundedCornerShape(20.dp),
+                                                color = Color(0xFFE8EAF6),
+                                                border = BorderStroke(
+                                                    1.dp,
+                                                    MidnightBlue.copy(alpha = 0.2f)
+                                                )
+                                            ) {
+                                                Text(
+                                                    synonym,
+                                                    modifier = Modifier.padding(
+                                                        horizontal = 10.dp, vertical = 4.dp
+                                                    ),
+                                                    fontSize = 12.sp,
+                                                    color = MidnightBlue
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // SDG Connection Card
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🎓", fontSize = 24.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Quality Education",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF2E7D32),
+                                    fontSize = 13.sp
+                                )
+                                Text(
+                                    "Use this dictionary to understand study terms better!",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF388E3C)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StudyTipsScreen(
+    paddingValues: PaddingValues,
+    viewModel: StudyMateApp,
+    onBack: () -> Unit
+) {
+    val uiState by viewModel.uiState
+    var tipText by remember { mutableStateOf("") }
+    var selectedSubject by remember { mutableStateOf("") }
+    var isPosting by remember { mutableStateOf(false) }
+    var postMessage by remember { mutableStateOf("") }
+    var communityTips by remember { mutableStateOf<List<StudyTip>>(emptyList()) }
+    var isLoadingTips by remember { mutableStateOf(true) }
+
+    val authorName = if (uiState.firstName.isNotBlank())
+        "${uiState.firstName} ${uiState.lastName}".trim()
+    else "Anonymous"
+
+    // Load tips from Firebase
+    LaunchedEffect(Unit) {
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance(
+                "https://studymate-3d213-default-rtdb.firebaseio.com"
+            ).reference
+                .child("study_tips")
+                .addValueEventListener(object : com.google.firebase.database.ValueEventListener {
+                    override fun onDataChange(snapshot: com.google.firebase.database.DataSnapshot) {
+                        val tips = mutableListOf<StudyTip>()
+                        snapshot.children.forEach { tipSnap ->
+                            try {
+                                val tip = StudyTip(
+                                    id = tipSnap.child("id").getValue(String::class.java) ?: "",
+                                    author = tipSnap.child("author").getValue(String::class.java) ?: "Anonymous",
+                                    tip = tipSnap.child("tip").getValue(String::class.java) ?: "",
+                                    subject = tipSnap.child("subject").getValue(String::class.java) ?: "",
+                                    timestamp = tipSnap.child("timestamp").getValue(Long::class.java) ?: 0L
+                                )
+                                if (tip.tip.isNotBlank()) tips.add(tip)
+                            } catch (e: Exception) {
+                                android.util.Log.e("Firebase", "Error: ${e.message}")
+                            }
+                        }
+                        communityTips = tips.sortedByDescending { it.timestamp }
+                        isLoadingTips = false
+                    }
+                    override fun onCancelled(error: com.google.firebase.database.DatabaseError) {
+                        isLoadingTips = false
+                    }
+                })
+        } catch (e: Exception) {
+            isLoadingTips = false
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(CleanGrayBg)
+            .padding(paddingValues)
+    ) {
+        // Top Bar
+        Box(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+            IconButton(
+                onClick = onBack,
+                modifier = Modifier.align(Alignment.CenterStart)
+            ) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MidnightBlue)
+            }
+            Text(
+                "💡 Study Community",
+                modifier = Modifier.align(Alignment.Center),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Post tip card
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Person, null, tint = MidnightBlue, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Posting as: $authorName",
+                                fontSize = 13.sp,
+                                color = MidnightBlue,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = tipText,
+                            onValueChange = { tipText = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Share a study tip...") },
+                            shape = RoundedCornerShape(12.dp),
+                            minLines = 3,
+                            maxLines = 5,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = BoxBorderBlue,
+                                focusedBorderColor = MidnightBlue,
+                                unfocusedContainerColor = Color.White,
+                                focusedContainerColor = Color.White,
+                            )
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        DropdownSelectField(
+                            label = "Subject",
+                            value = selectedSubject,
+                            placeholder = "Select subject",
+                            options = listOf(
+                                "Mathematics", "Science", "Biology",
+                                "Chemistry", "Physics", "History",
+                                "English", "Computer Science", "General"
+                            ),
+                            onSelected = { selectedSubject = it }
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        if (postMessage.isNotEmpty()) {
+                            Text(
+                                postMessage,
+                                color = if (postMessage.startsWith("✅"))
+                                    Color(0xFF2E7D32) else Color.Red,
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        Button(
+                            onClick = {
+                                if (tipText.isBlank()) {
+                                    postMessage = "❌ Please write a tip first!"
+                                    return@Button
+                                }
+                                isPosting = true
+                                postMessage = ""
+                                viewModel.postStudyTip(
+                                    authorName = authorName,
+                                    tip = tipText,
+                                    subject = selectedSubject.ifBlank { "General" },
+                                    onSuccess = {
+                                        isPosting = false
+                                        tipText = ""
+                                        selectedSubject = ""
+                                        postMessage = "✅ Tip posted successfully!"
+                                    },
+                                    onFailure = { error ->
+                                        isPosting = false
+                                        postMessage = "❌ Failed: $error"
+                                    }
+                                )
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MidnightBlue),
+                            shape = RoundedCornerShape(12.dp),
+                            enabled = !isPosting
+                        ) {
+                            if (isPosting) {
+                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Posting...", color = Color.White)
+                            } else {
+                                Icon(Icons.Default.Send, null, tint = Color.White)
+                                Spacer(Modifier.width(8.dp))
+                                Text("Post Tip", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Tips header
+            item {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("💡 Community Tips", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Surface(color = MidnightBlue, shape = RoundedCornerShape(20.dp)) {
+                        Text(
+                            "${communityTips.size}",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+
+            // Loading
+            if (isLoadingTips) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MidnightBlue)
+                    }
+                }
+            }
+
+            // Empty state
+            if (!isLoadingTips && communityTips.isEmpty()) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("📚", fontSize = 48.sp)
+                            Spacer(Modifier.height(12.dp))
+                            Text("No tips yet! Be the first to share!", color = SubtextGray, textAlign = TextAlign.Center)
+                        }
+                    }
+                }
+            }
+
+            // Tips list
+            items(communityTips) { tip ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    modifier = Modifier.size(36.dp),
+                                    shape = CircleShape,
+                                    color = MidnightBlue.copy(alpha = 0.1f)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            tip.author.first().uppercase(),
+                                            fontWeight = FontWeight.Bold,
+                                            color = MidnightBlue
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Text(tip.author, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = TitleDark)
+                                    Text(
+                                        SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(java.util.Date(tip.timestamp)),
+                                        fontSize = 11.sp,
+                                        color = SubtextGray
+                                    )
+                                }
+                            }
+                            Surface(color = MidnightBlue.copy(alpha = 0.1f), shape = RoundedCornerShape(8.dp)) {
+                                Text(
+                                    tip.subject,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    fontSize = 11.sp,
+                                    color = MidnightBlue,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.3f))
+                        Spacer(Modifier.height(10.dp))
+                        Text(tip.tip, fontSize = 14.sp, color = TitleDark, lineHeight = 20.sp)
+                    }
+                }
+            }
         }
     }
 }

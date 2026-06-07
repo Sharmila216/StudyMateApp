@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "349304763751",
+    "firebase_url": "https://studymate-3d213-default-rtdb.firebaseio.com",
+    "project_id": "studymate-3d213",
+    "storage_bucket": "studymate-3d213.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:349304763751:android:5aaef12c765147fb05abc2",
+        "android_client_info": {
+          "package_name": "com.example.a216155_cikguizwan_project2"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA6tLFz5e2G20LRKCx_J4ePIJEoNC9D1F0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

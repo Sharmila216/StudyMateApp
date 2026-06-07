@@ -1,4 +1,4 @@
-package com.example.a216155_cikguizwan_lab5.ui.them
+package com.example.a216155_cikguizwan_project2.ui.them
 
 import androidx.compose.ui.graphics.Color
 
