@@ -93,12 +93,13 @@ fun StudyMateApp() {
         Box(modifier = Modifier.fillMaxSize()) {
             when (currentPage) {
                 // FIXED: Explicitly passing all required parameters for each screen
-                "dashboard" -> DashboardScreen(paddingValues, onSearchClick = { /* Add logic */ })
+               "dashboard" -> DashboardScreen(paddingValues, onSearchClick = { currentPage = "search" })
                 "calendar" -> CalendarScreen(paddingValues)
                 "menu" -> MenuScreen(paddingValues)
                 "profile" -> ProfileScreen(paddingValues, onEditClick = { /* Add logic */ })
                 "add_new" -> AddNewScreen(paddingValues = paddingValues, onBack = { currentPage = "dashboard" })
-                else -> DashboardScreen(paddingValues, onSearchClick = { })
+                "search" -> SearchPage(onBack = { currentPage = "dashboard" })
+                "edit_profile" -> EditProfileScreen(paddingValues, onBack = { currentPage = "profile" })
             }
         }
     }
